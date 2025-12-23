@@ -1,0 +1,1914 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Luxury Tree - Custom Edition</title>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Ma+Shan+Zheng&display=swap');
+
+        body { margin: 0; overflow: hidden; background-color: #020205; font-family: 'Cinzel', serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; z-index: 1; }
+        
+        #ui-layer { position: absolute; width: 100%; height: 100%; z-index: 10; pointer-events: none; background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.3) 100%); }
+        
+        #main-title {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            text-align: center;
+            font-family: 'Cinzel', serif;
+            font-weight: 800;
+            font-size: clamp(36px, 7vw, 80px); 
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            pointer-events: none;
+            z-index: 20;
+            opacity: 0;
+            min-height: 1.2em;
+            
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(180deg, #fffdf0 0%, #eacda3 30%, #d6ae7b 60%, #8b6c42 100%);
+            filter: drop-shadow(0 0 15px rgba(212, 175, 55, 0.6));
+            
+            animation: titleFadeIn 2s ease-out forwards 1s;
+            transition: filter 1.5s ease, background-image 1.5s ease;
+        }
+
+        @keyframes titleFadeIn {
+            from { opacity: 0; transform: translate(-50%, -20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+
+        #loader { position: absolute; width: 100%; height: 100%; background: #000; z-index: 100; display: flex; align-items: center; justify-content: center; transition: opacity 1.2s; pointer-events: none; }
+        .spinner { width: 40px; height: 40px; border: 2px solid rgba(212, 175, 55, 0.1); border-top: 2px solid #d4af37; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        #top-right-controls { position: absolute; top: 20px; right: 20px; z-index: 30; display: flex; flex-direction: row; gap: 15px; pointer-events: auto; }
+        .control-col { display: flex; flex-direction: column; gap: 15px; }
+        
+        .control-btn { background: rgba(10, 10, 10, 0.6); border: 1px solid rgba(212, 175, 55, 0.4); color: #d4af37; width: 100px; padding: 5px 0; border-radius: 7px; font-family: 'Cinzel', serif; font-size: 14px; font-weight: 600; cursor: pointer; backdrop-filter: blur(5px); transition: all 0.3s ease; }
+        .control-btn:hover { background: rgba(212, 175, 55, 0.2); border-color: rgba(212, 175, 55, 0.8); color: #fff; transform: scale(1.05); }
+        .control-btn:active { transform: scale(0.95); }
+        .control-btn.disabled { color: #666; border-color: #444; }
+        
+        #file-input, #music-input, #import-input { display: none; }
+
+        #webcam-wrapper { position: absolute; bottom: 20px; right: 20px; opacity: 0; pointer-events: none; border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; background: #000; z-index: 50; display: flex; transition: opacity 0.5s; }
+        #webcam { display: none; }
+        #webcam-preview { width: 100%; height: 100%; transform: scaleX(-1); }
+
+        #letter-editor-modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 500px; background: rgba(10, 10, 10, 0.95); border: 1px solid #d4af37; border-radius: 10px; padding: 20px; z-index: 200; display: none; flex-direction: column; gap: 15px; pointer-events: auto; }
+        #letter-editor-modal h3 { color: #d4af37; margin: 0; text-align: center; }
+        #letter-text-input { width: 100%; height: 150px; background: rgba(255,255,255,0.05); border: 1px solid #444; color: #fff; padding: 10px; resize: none; outline: none; }
+        .modal-btn-group { display: flex; justify-content: flex-end; gap: 10px; }
+
+        #letter-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 150; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; pointer-events: auto; opacity: 0; transition: opacity 1.5s ease; }
+        .letter-paper { height: 80%; aspect-ratio: 3/4; background: rgba(255, 252, 240, 0.15); backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.3); padding: 6vh; box-sizing: border-box; position: relative; display: flex; flex-direction: column; transform: translateY(20px); transition: transform 1.5s ease-out; }
+        .letter-content { font-family: 'Ma Shan Zheng', cursive; font-size: clamp(16px, 2.5vh, 24px); line-height: 1.8; color: rgba(255, 255, 255, 0.9); text-shadow: 0 0 5px rgba(255,215,0, 0.3); white-space: pre-wrap; overflow-y: auto; flex: 1; scroll-behavior: smooth; }
+        
+        .letter-content::-webkit-scrollbar { width: 6px; }
+        .letter-content::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.3); border-radius: 3px; }
+        .cursor::after { content: '|'; animation: blink 1s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .letter-close-btn { position: absolute; top: 15px; right: 15px; width: 30px; height: 30px; border: 1px solid rgba(255,255,255,0.4); border-radius: 50%; color: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; }
+        .letter-close-btn:hover { background: rgba(255,255,255,0.2); color: #fff; border-color: #fff; }
+        
+        #gesture-guide-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 210; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; pointer-events: auto; }
+        #gesture-guide-modal { width: 86%; max-width: 560px; background: rgba(10, 10, 10, 0.95); border: 1px solid rgba(212, 175, 55, 0.55); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+        #gesture-guide-modal h3 { color: #d4af37; margin: 0; text-align: center; }
+        #gesture-guide-content { color: rgba(255,255,255,0.85); font-size: 14px; line-height: 1.75; max-height: 60vh; overflow: auto; white-space: pre-wrap; }
+        #gesture-guide-content::-webkit-scrollbar { width: 6px; }
+        #gesture-guide-content::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.3); border-radius: 3px; }
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+                "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm"
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <div id="loader"><div class="spinner"></div></div>
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div id="main-title"></div>
+
+        <div id="top-right-controls">
+            <div class="control-col" id="col-media">
+                <button id="btn-bg-music" class="control-btn">上传音乐</button>
+                <button id="btn-add-photo" class="control-btn">上传照片</button>
+                <button id="btn-write-letter" class="control-btn">上传书信</button>
+                <button id="btn-set-title" class="control-btn">设置标题</button>
+            </div>
+            <div class="control-col" id="col-system">
+                <button id="btn-import" class="control-btn">导入网页</button>
+                <button id="btn-export" class="control-btn">导出网页</button>
+                <button id="btn-fullscreen" class="control-btn">全屏显示</button>
+                <button id="btn-switch-theme" class="control-btn">颜色切换</button>
+                <button id="btn-switch-model" class="control-btn">模型切换</button>
+                <button id="btn-gesture-guide" class="control-btn">手势指南</button>
+            </div>
+        </div>
+        <input type="file" id="file-input" multiple accept="image/*">
+        <input type="file" id="music-input" accept="audio/mp3,audio/*">
+        <input type="file" id="import-input" accept=".json">
+    </div>
+
+    <div id="letter-editor-modal">
+        <h3>撰写你的心意</h3>
+        <textarea id="letter-text-input" placeholder="在这里写下你想说的话..."></textarea>
+        <div class="modal-btn-group">
+            <button id="btn-cancel-letter" class="control-btn" style="width: 80px;">取消</button>
+            <button id="btn-save-letter" class="control-btn" style="width: 80px;">保存</button>
+        </div>
+    </div>
+
+    <div id="letter-overlay">
+        <div class="letter-paper">
+            <div class="letter-close-btn" id="btn-close-letter-mode">×</div>
+            <div class="letter-content" id="letter-content-display"></div>
+        </div>
+    </div>
+
+    <div id="gesture-guide-overlay">
+        <div id="gesture-guide-modal">
+            <h3>手势指南</h3>
+            <div id="gesture-guide-content">1) 张开手掌（五指张开）
+效果：粒子散开（TREE/HEART/SATURN 都支持），同时可用手掌移动控制旋转方向与散开强度。
+
+2) 手掌合拢/收回
+效果：粒子平滑重组回到当前模型。
+
+3) 食指指向（Pointing）
+效果：进入聚焦模式，系统会把一个照片（或顶端造型）推到镜头前展示，其它元素淡出。
+
+4) “点赞”手势（拇指上、其它手指弯曲）或旧版“伸四指+拇指内收”
+效果：切换主题颜色。
+提示：你也可以在“颜色切换”按钮上右键，开启/关闭“手势切换颜色”。
+
+5) 触发信纸模式（捏合触发：拇指与食指距离很近，同时中指明显伸出）
+效果：进入信纸模式并播放打字动画；点击右上角 × 退出。</div>
+            <div class="modal-btn-group">
+                <button id="btn-close-gesture-guide" class="control-btn" style="width: 100px;">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="webcam-wrapper">
+        <video id="webcam" autoplay playsinline webkit-playsinline></video>
+        <canvas id="webcam-preview"></canvas>
+    </div>
+    
+    <audio id="bg-music" loop crossorigin="anonymous"></audio>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'; 
+        import { FilesetResolver, HandLandmarker, DrawingUtils } from '@mediapipe/tasks-vision';
+
+        const CONFIG = {
+            colors: {
+                bg: 0x020205, gold: 0xffd700, red: 0x880000, green: 0x004400,
+                iceBlue: 0xaaddff, 
+                iceCyan: 0x00ffff, 
+                iceMagenta: 0xff00cc,
+                iceDeep: 0x002244,
+                white: 0xffffff,
+                barbieHot: 0xff1694,
+                barbieSoft: 0xffb7c5,
+                barbieViolet: 0xd461e3,
+                silver: 0xcfd8dc,
+                silverBlue: 0xb6d8ff,
+                roseGold: 0xffc7a3
+            },
+            particles: { 
+                count: 8200, dustCount: 1500, treeHeight: 28.8, treeRadius: 8.4,
+                snowCount: 2500, snowSpeed: 10 
+            },
+            camera: { z: 55 },
+            gestures: { palmOpenThreshold: 0.35, sensitivity: 6.0 }
+        };
+
+        const STATE = {
+            mode: 'TREE', focusTarget: null, currentPhotoIndex: -1,
+            currentThemeIndex: 0, 
+            model: 'TREE',
+            gestureDebounceTimer: 0,
+            isGestureSwitchEnabled: true, 
+            scatterScale: 1.0, gestureBaseSpread: null,
+            morph: 0.0,
+            hand: { detected: false, x: 0, y: 0 },
+            rotation: { x: 0, y: 0 }, spinVel: { x: 0, y: 0 }, time: 0,
+            wasPointing: false, palmCenter: { x: 0.5, y: 0.5 }, hasPalmCenter: false,
+            starMesh: null, starHaloMesh: null,
+            letterContent: "在这个特别的时刻，\n我想告诉你，\n你是我眼中的万千星河。\n\n(请点击右上角上传书信修改此内容)", 
+            letterTyper: null, letterStartTimer: null, letterLastTriggerTime: 0,
+            musicData: null,
+        };
+
+        let scene, camera, renderer, composer, clock = new THREE.Clock();
+        let mainGroup, starGroup, bgGroup, photoMeshGroup, particleSystem = []; 
+        let galaxySystem = null; 
+        let snowSystem = null;
+        let heartSystem = null;
+
+        let treePoints = null;
+        let treeUniforms = null;
+        let treeMaterial = null;
+        let treeGeometry = null;
+
+        let heartPoints = null;
+        let heartUniforms = null;
+        let heartMaterial = null;
+        let heartGeometry = null;
+
+        let saturnPoints = null;
+        let saturnUniforms = null;
+        let saturnMaterial = null;
+        let saturnGeometry = null;
+
+        let baseRingPoints = null;
+        let baseRingUniforms = null;
+        let baseRingMaterial = null;
+        let baseRingGeometry = null;
+
+        let ambientSparkles = null;
+        let ambientUniforms = null;
+        let ambientMaterial = null;
+        let ambientGeometry = null;
+
+        let topperPoints = null;
+        let topperUniforms = null;
+        let topperMaterial = null;
+        let topperGeometry = null;
+
+        const TREE_THEMES = [
+            { col1: 0xff2a3a, col2: 0xffffff, accent: 0xffd3d3, pointSize: 1.75, fade: 1.0 },
+            { col1: 0xe7fbff, col2: 0x88ccff, accent: 0x00ffff, pointSize: 1.6, fade: 0.9 },
+            { col1: 0xff1694, col2: 0xffb7c5, accent: 0xffffff, pointSize: 1.7, fade: 0.86 },
+            { col1: 0xffffff, col2: 0xcfd8dc, accent: 0xb6d8ff, pointSize: 1.55, fade: 0.9 },
+            { col1: 0xffc7a3, col2: 0xff69b4, accent: 0xffffff, pointSize: 1.65, fade: 0.86 }
+        ];
+
+        const THEME_COUNT = TREE_THEMES.length;
+
+        const MODELS = ['TREE', 'HEART', 'SATURN'];
+        const MODEL_COUNT = MODELS.length;
+
+        let handLandmarker, video, drawingUtils, canvasCtx;
+        let caneTexture, snowTexture, heartTexture, matLib = {};
+        
+        const _tempVec = new THREE.Vector3();
+        const _targetVec = new THREE.Vector3();
+        const _invMatrix = new THREE.Matrix4();
+
+        async function init() {
+            initThree();            
+            setupEnvironment();     
+            setupLights();          
+            createTextures();       
+            createMaterials(); 
+            
+            createGalaxyBackground(); 
+            createSnowBackground();
+            createHeartBackground();
+            
+            createParticles();      
+            setupPostProcessing();
+            setupEvents();          
+            setupLetterSystem(); 
+            
+            switchTheme(0);
+
+            initMediaPipe().catch(console.warn);
+
+            const loader = document.getElementById('loader');
+            loader.style.opacity = 0;
+            setTimeout(() => loader.remove(), 1200);
+
+            animate(); 
+        }
+
+        function initThree() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(CONFIG.colors.bg);
+            scene.fog = new THREE.FogExp2(CONFIG.colors.bg, 0.012); 
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.position.set(0, 0, CONFIG.camera.z); 
+
+            renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", depth: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping; 
+            renderer.toneMappingExposure = 1.0; 
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            bgGroup = new THREE.Group(); scene.add(bgGroup);
+            mainGroup = new THREE.Group(); mainGroup.rotation.x = 0.1; scene.add(mainGroup);
+            starGroup = new THREE.Group(); mainGroup.add(starGroup);
+            photoMeshGroup = new THREE.Group(); mainGroup.add(photoMeshGroup);
+        }
+
+        function setupEnvironment() {
+            const pmrem = new THREE.PMREMGenerator(renderer);
+            pmrem.compileEquirectangularShader();
+            scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+        }
+
+        function setupLights() {
+            scene.add(new THREE.AmbientLight(0xffffff, 0.2));
+            const bottomLight = new THREE.PointLight(CONFIG.colors.gold, 3, 40);
+            bottomLight.position.set(0, -10, 10);
+            mainGroup.add(bottomLight);
+            
+            const spotGold = new THREE.SpotLight(0xfff0dd, 800);
+            spotGold.position.set(40, 60, 40); spotGold.angle = 0.4; spotGold.decay = 2;
+            scene.add(spotGold);
+            
+            const spotBlue = new THREE.SpotLight(0x4455ff, 400);
+            spotBlue.position.set(-40, 10, -30); spotBlue.lookAt(0,0,0);
+            scene.add(spotBlue);
+        }
+
+        function setupPostProcessing() {
+            const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+            bloom.threshold = 0.88; bloom.strength = 0.28; bloom.radius = 0.33;
+            composer = new EffectComposer(renderer);
+            composer.addPass(new RenderPass(scene, camera));
+            composer.addPass(bloom);
+        }
+
+        function createFrostTexture() {
+            const canvas = document.createElement('canvas'); 
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#666'; ctx.fillRect(0,0,256,256);
+            for(let i=0; i<80; i++) {
+                ctx.strokeStyle = `rgba(255,255,255,${0.2 + Math.random()*0.5})`;
+                ctx.lineWidth = Math.random() * 2 + 0.5;
+                ctx.beginPath();
+                const x = Math.random()*256, y = Math.random()*256;
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + (Math.random()-0.5)*60, y + (Math.random()-0.5)*60);
+                ctx.stroke();
+            }
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+            return tex;
+        }
+
+        function createTextures() {
+            const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,128,128);
+            ctx.fillStyle = '#aa0000'; ctx.beginPath();
+            for(let i=-128; i<256; i+=32) { ctx.moveTo(i, 0); ctx.lineTo(i+32, 128); ctx.lineTo(i+16, 128); ctx.lineTo(i-16, 0); }
+            ctx.fill();
+            caneTexture = new THREE.CanvasTexture(canvas);
+            caneTexture.colorSpace = THREE.SRGBColorSpace;
+            caneTexture.wrapS = THREE.RepeatWrapping; caneTexture.wrapT = THREE.RepeatWrapping;
+            caneTexture.repeat.set(3, 3);
+
+            const snowCvs = document.createElement('canvas'); snowCvs.width = 32; snowCvs.height = 32;
+            const sCtx = snowCvs.getContext('2d');
+            const grad = sCtx.createRadialGradient(16,16,0, 16,16,16);
+            grad.addColorStop(0, 'rgba(255,255,255,1)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            sCtx.fillStyle = grad; sCtx.fillRect(0,0,32,32);
+            snowTexture = new THREE.CanvasTexture(snowCvs);
+
+            const hCvs = document.createElement('canvas'); hCvs.width = 64; hCvs.height = 64;
+            const hCtx = hCvs.getContext('2d');
+            hCtx.fillStyle = '#ffffff';
+            hCtx.beginPath();
+            hCtx.moveTo(32, 20);
+            hCtx.bezierCurveTo(32, 17, 30, 10, 20, 10);
+            hCtx.bezierCurveTo(10, 10, 10, 25, 10, 25);
+            hCtx.bezierCurveTo(10, 35, 20, 42, 32, 55);
+            hCtx.bezierCurveTo(44, 42, 54, 35, 54, 25);
+            hCtx.bezierCurveTo(54, 25, 54, 10, 44, 10);
+            hCtx.bezierCurveTo(36, 10, 32, 17, 32, 20);
+            hCtx.fill();
+            heartTexture = new THREE.CanvasTexture(hCvs);
+        }
+
+        function createMaterials() {
+            matLib.gold = new THREE.MeshStandardMaterial({ color: CONFIG.colors.gold, metalness: 1.0, roughness: 0.15, envMapIntensity: 2.5, emissive: 0x664400, emissiveIntensity: 0.2 });
+            matLib.green = new THREE.MeshStandardMaterial({ color: CONFIG.colors.green, metalness: 0.4, roughness: 0.3, emissive: 0x001100, emissiveIntensity: 0.1 });
+            matLib.red = new THREE.MeshPhysicalMaterial({ color: CONFIG.colors.red, metalness: 0.6, roughness: 0.2, clearcoat: 1.0, emissive: 0x330000, emissiveIntensity: 0.4 });
+            matLib.candy = new THREE.MeshStandardMaterial({ map: caneTexture, roughness: 0.3, metalness: 0.1, emissive: 0x222222 });
+            matLib.starGold = new THREE.MeshStandardMaterial({ color: 0xffdd88, emissive: 0xffaa00, emissiveIntensity: 2.0, metalness: 1.0, roughness: 0 });
+            matLib.frameGold = new THREE.MeshStandardMaterial({ color: CONFIG.colors.gold, metalness: 1.0, roughness: 0.2 });
+
+            const frostTex = createFrostTexture();
+            matLib.ice = new THREE.MeshPhysicalMaterial({ 
+                color: 0xffffff, metalness: 0.1, roughness: 0.05, 
+                transmission: 0.95, thickness: 1.5, ior: 1.8, 
+                clearcoat: 1.0, envMapIntensity: 2.0,
+                iridescence: 1.0, iridescenceIOR: 1.3, iridescenceThicknessRange: [100, 400],
+                emissive: CONFIG.colors.iceBlue, emissiveIntensity: 0.3 
+            });
+            matLib.frozenCyan = new THREE.MeshPhysicalMaterial({
+                color: CONFIG.colors.iceCyan, metalness: 0.8, roughness: 0.2,
+                emissive: CONFIG.colors.iceCyan, emissiveIntensity: 2.0,
+                clearcoat: 1.0
+            });
+            matLib.frozenMagenta = new THREE.MeshPhysicalMaterial({
+                color: CONFIG.colors.iceMagenta, metalness: 0.5, roughness: 0.2,
+                emissive: CONFIG.colors.iceMagenta, emissiveIntensity: 1.5,
+                clearcoat: 1.0
+            });
+            matLib.starIce = new THREE.MeshPhysicalMaterial({ 
+                color: CONFIG.colors.iceCyan, emissive: 0xffffff, emissiveIntensity: 3.0, 
+                metalness: 0.2, roughness: 0, transmission: 0.6, thickness: 3.0 
+            });
+            matLib.snow = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.1, roughness: 0.8, emissive: 0xaaaaaa, emissiveIntensity: 0.8 });
+            
+            matLib.barbieMain = new THREE.MeshPhysicalMaterial({ color: CONFIG.colors.barbieHot, metalness: 0.2, roughness: 0.1, clearcoat: 1.0, emissive: 0x440022, emissiveIntensity: 0.3 });
+            matLib.barbieSoft = new THREE.MeshStandardMaterial({ color: CONFIG.colors.barbieSoft, metalness: 0.1, roughness: 0.4, emissive: 0x442233, emissiveIntensity: 0.2 });
+            matLib.pearl = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0.9, roughness: 0.1, transmission: 0.1, clearcoat: 1.0, iridescence: 1.0, iridescenceIOR: 1.3 });
+            matLib.starBarbie = new THREE.MeshStandardMaterial({ color: CONFIG.colors.barbieHot, emissive: 0xff0088, emissiveIntensity: 4.0, metalness: 0.5, roughness: 0.1 });
+            matLib.frameBarbie = matLib.barbieMain;
+
+            matLib.snowBorder = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, side: THREE.BackSide });
+            matLib.frameIce = matLib.ice;
+            matLib.dust = new THREE.MeshBasicMaterial({ color: 0xffffee, blending: THREE.AdditiveBlending });
+            matLib.snowFlake = new THREE.PointsMaterial({ color: 0xffffff, size: 0.8, map: snowTexture, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+            matLib.heartFlake = new THREE.PointsMaterial({ color: CONFIG.colors.barbieHot, size: 1.5, map: heartTexture, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false });
+        }
+
+        class Particle {
+            constructor(mesh, type, isDust = false) {
+                this.mesh = mesh; this.type = type; this.isDust = isDust;
+                this.posTree = new THREE.Vector3(); this.posScatter = new THREE.Vector3();
+                this.baseScale = mesh.scale.x; this.offset = Math.random() * 100; this.speed = 0.5 + Math.random();
+                if (mesh.material && mesh.material.emissive) { this.baseEmissive = mesh.material.emissive.clone(); this.hasEmissive = true; }
+                this.calculatePositions();
+            }
+
+            calculatePositions() {
+                const h = CONFIG.particles.treeHeight; let t = Math.random();
+                if (Math.random() > 0.7 && !this.isDust && this.type !== 'PHOTO') {
+                    const y = (t * h) - h/2, angle = t * Math.PI * 12, rBase = CONFIG.particles.treeRadius * (1.0 - t);
+                    this.posTree.set(Math.cos(angle) * rBase, y, Math.sin(angle) * rBase);
+                } else {
+                    t = Math.pow(t, 0.8); const y = (t * h) - h/2, angle = Math.random() * Math.PI * 2, r = Math.max(0.5, CONFIG.particles.treeRadius * (1.0 - t)) * Math.sqrt(Math.random());
+                    this.posTree.set(Math.cos(angle) * r, y, Math.sin(angle) * r);
+                }
+                const rScatter = this.isDust ? (15 + Math.random()*25) : (10 + Math.random()*15);
+                const theta = Math.random() * Math.PI * 2, phi = Math.acos(2 * Math.random() - 1);
+                this.posScatter.set(rScatter * Math.sin(phi) * Math.cos(theta), rScatter * Math.sin(phi) * Math.sin(theta), rScatter * Math.cos(phi));
+            }
+
+            update(dt, time, mode, focusTargetMesh, invMatrix) {
+                let target, s = this.baseScale, lerpSpeed = 3.0;
+                
+                if (mode === 'SCATTER') {
+                    _targetVec.copy(this.posScatter).multiplyScalar(STATE.scatterScale);
+                    target = _targetVec;
+                }
+                else if (mode === 'LETTER') target = this.posScatter;
+                else if (mode === 'FOCUS') {
+                    if (this.mesh === focusTargetMesh && invMatrix) {
+                        _targetVec.set(0, 0, CONFIG.camera.z - 15).applyMatrix4(invMatrix);
+                        target = _targetVec;
+                        lerpSpeed = 6.0; this.mesh.lookAt(camera.position); s = this.baseScale * 5.0;
+                    } else { target = this.posScatter; s = 0.01; }
+                } else {
+                    target = this.posTree;
+                }
+
+                _tempVec.copy(target);
+                if(mode === 'TREE') { 
+                    const floatScale = (STATE.currentThemeIndex === 1) ? 0.3 : 0.15;
+                    _tempVec.y += Math.sin(time * this.speed + this.offset) * floatScale; 
+                    _tempVec.x += Math.cos(time * 0.5 * this.speed + this.offset) * 0.1; 
+                }
+                this.mesh.position.lerp(_tempVec, lerpSpeed * dt);
+
+                if (this.hasEmissive && mode === 'TREE' && !this.isDust) {
+                    const blink = Math.sin(time * 2 + this.offset);
+                    const maxEmit = (STATE.currentThemeIndex === 1) ? 3.0 : 2.5;
+                    this.mesh.material.emissiveIntensity = blink > 0.5 ? (1.0 + (blink - 0.5) * maxEmit) : 0.4;
+                }
+
+                if (mode !== 'FOCUS') {
+                    if (this.isDust) s = this.baseScale * (0.5 + 0.5 * Math.sin(time * 3 + this.offset));
+                    else if ((mode === 'SCATTER' || mode === 'LETTER') && this.type === 'PHOTO') s = this.baseScale * 2.5;
+                    
+                    if (STATE.currentThemeIndex === 1 && mode === 'TREE' && !this.isDust && this.type !== 'PHOTO') {
+                            s *= (1.0 + 0.2 * Math.sin(time * 3 + this.offset));
+                    }
+                }
+                this.mesh.scale.lerp(_tempVec.set(s,s,s), 5*dt);
+            }
+        }
+
+        function createGalaxyBackground() {
+            const geometry = new THREE.BufferGeometry(), count = 3000;
+            const pos = new Float32Array(count * 3), sizes = new Float32Array(count), colors = new Float32Array(count * 3);
+            const c1 = new THREE.Color(0x88aaff), c2 = new THREE.Color(0xffffee), c3 = new THREE.Color(0xffd700);
+            for(let i=0; i<count; i++) {
+                const r = 60 + Math.random()*250, theta = Math.random()*Math.PI*2, phi = Math.acos(2*Math.random()-1);
+                pos[i*3] = r*Math.sin(phi)*Math.cos(theta); pos[i*3+1] = r*Math.sin(phi)*Math.sin(theta); pos[i*3+2] = r*Math.cos(phi);
+                sizes[i] = Math.random()*2.0;
+                let c = Math.random(), finalC = c<0.6?c2:(c<0.9?c1:c3);
+                colors[i*3]=finalC.r; colors[i*3+1]=finalC.g; colors[i*3+2]=finalC.b;
+            }
+            geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            
+            galaxySystem = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 1.0, transparent: true, opacity: 0.8, vertexColors: true, sizeAttenuation: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+            bgGroup.add(galaxySystem);
+        }
+
+        function createSnowBackground() {
+            const geometry = new THREE.BufferGeometry();
+            const count = CONFIG.particles.snowCount;
+            const pos = new Float32Array(count * 3);
+            const velocities = new Float32Array(count); 
+
+            for(let i=0; i<count; i++) {
+                pos[i*3] = (Math.random() - 0.5) * 100; 
+                pos[i*3+1] = (Math.random() - 0.5) * 100; 
+                pos[i*3+2] = (Math.random() - 0.5) * 60; 
+                velocities[i] = 1.0 + Math.random(); 
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
+
+            snowSystem = new THREE.Points(geometry, matLib.snowFlake);
+            snowSystem.visible = false; 
+            bgGroup.add(snowSystem);
+        }
+
+        function createHeartBackground() {
+            const geometry = new THREE.BufferGeometry();
+            const count = 1500;
+            const pos = new Float32Array(count * 3);
+            const velocities = new Float32Array(count);
+            const colors = new Float32Array(count * 3);
+            const c1 = new THREE.Color(CONFIG.colors.barbieHot);
+            const c2 = new THREE.Color(CONFIG.colors.barbieSoft);
+            const c3 = new THREE.Color(0xffffff);
+
+            for(let i=0; i<count; i++) {
+                pos[i*3] = (Math.random() - 0.5) * 120; 
+                pos[i*3+1] = (Math.random() - 0.5) * 120; 
+                pos[i*3+2] = (Math.random() - 0.5) * 80; 
+                velocities[i] = 0.5 + Math.random() * 0.8; 
+                let c = Math.random();
+                let finalC = c < 0.4 ? c1 : (c < 0.7 ? c2 : c3);
+                colors[i*3] = finalC.r; colors[i*3+1] = finalC.g; colors[i*3+2] = finalC.b;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            const mat = matLib.heartFlake.clone();
+            mat.vertexColors = true;
+            heartSystem = new THREE.Points(geometry, mat);
+            heartSystem.visible = false;
+            bgGroup.add(heartSystem);
+        }
+
+        function createTreePoints() {
+            if (treePoints) {
+                mainGroup.remove(treePoints);
+                if (treeGeometry) treeGeometry.dispose();
+                if (treeMaterial) treeMaterial.dispose();
+                treePoints = null;
+            }
+
+            const count = CONFIG.particles.count;
+            const posTree = new Float32Array(count * 3);
+            const posScatter = new Float32Array(count * 3);
+            const seed = new Float32Array(count);
+            const size = new Float32Array(count);
+            const mixv = new Float32Array(count);
+            const shell = new Float32Array(count);
+
+            const h = CONFIG.particles.treeHeight;
+            const rMax = CONFIG.particles.treeRadius;
+
+            const bands = 22;
+            const bandJitter = 0.85;
+
+            const bandHeight = h / bands;
+            const layerThickness = bandHeight * 0.32;
+            const majorSteps = 7;
+
+            const smoothstep = (e0, e1, x) => {
+                const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+                return t * t * (3 - 2 * t);
+            };
+
+            for (let i = 0; i < count; i++) {
+                const t = Math.random();
+                const tt = Math.pow(t, 0.70);
+
+                const topMix = smoothstep(0.58, 0.92, tt);
+
+                const bandIndex = Math.min(bands - 1, Math.floor(tt * bands));
+                const bandDisc = bandIndex / bands;
+
+                const yBandDisc = (bandDisc * h) - h / 2;
+                const yInLayer = Math.pow(Math.random(), 2.2) * layerThickness;
+                const yDisc = yBandDisc + yInLayer + (Math.random() - 0.5) * (bandJitter * 0.08);
+
+                const yCont = (tt * h) - h / 2 + (Math.random() - 0.5) * (bandHeight * 0.85);
+                const y = yDisc * (1.0 - topMix) + yCont * topMix;
+
+                const band = bandDisc * (1.0 - topMix) + tt * topMix;
+
+                const hNorm = Math.min(1.0, Math.max(0.0, (y + h * 0.5) / h));
+
+                const majorBandQ = Math.floor(band * majorSteps) / majorSteps;
+                const majorBand = majorBandQ * (1.0 - topMix) + band * topMix;
+                const topBlend = smoothstep(0.62, 1.0, hNorm);
+                const bandForRadius = majorBand * (1.0 - topBlend) + band * topBlend;
+
+                const rStep = Math.max(0.35, rMax * (1.0 - bandForRadius));
+                const layerEdge = Math.min(1.0, Math.max(0.0, yInLayer / Math.max(0.0001, layerThickness)));
+                const lipAmp = 0.78 * (1.0 - 0.65 * topMix);
+                const lip = 1.0 + lipAmp * (1.0 - smoothstep(0.15, 0.95, layerEdge));
+                const skirt = 1.0 + 0.18 * (1.0 - smoothstep(0.0, 0.26, hNorm));
+                const rLayer = rStep * lip * skirt;
+
+                const isGarland = (Math.random() < 0.22);
+                const isShell = isGarland || (Math.random() < 0.92);
+
+                let angle;
+                let r;
+                if (isGarland) {
+                    angle = tt * Math.PI * 16.0 + (Math.random() - 0.5) * 0.18;
+                    r = rLayer * (0.96 + Math.random() * 0.10);
+                } else {
+                    angle = Math.random() * Math.PI * 2.0;
+                    if (isShell) {
+                        r = rLayer * (0.84 + Math.random() * 0.22);
+                    } else {
+                        r = rLayer * Math.sqrt(Math.random()) * 0.88;
+                    }
+                }
+
+                const bottomTightW = 1.0 - smoothstep(0.0, 0.38, hNorm);
+                const rNormPre = Math.min(1.0, Math.max(0.0, r / Math.max(0.0001, rLayer)));
+                const tight = 1.0 - 0.14 * bottomTightW * Math.pow(rNormPre, 1.35);
+                r *= tight;
+
+                const rNorm = Math.min(1.0, Math.max(0.0, r / Math.max(0.0001, rLayer)));
+                const bottomW = 1.0 - smoothstep(0.18, 0.92, hNorm);
+                const droop = bandHeight * 0.55 * bottomW * Math.pow(rNorm, 1.7) * (isShell ? 1.0 : 0.75);
+                const yFinal = y - droop;
+
+                posTree[i * 3] = Math.cos(angle) * r;
+                posTree[i * 3 + 1] = yFinal;
+                posTree[i * 3 + 2] = Math.sin(angle) * r;
+
+                const rScatter = 10 + Math.random() * 18;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                posScatter[i * 3] = rScatter * Math.sin(phi) * Math.cos(theta);
+                posScatter[i * 3 + 1] = rScatter * Math.sin(phi) * Math.sin(theta);
+                posScatter[i * 3 + 2] = rScatter * Math.cos(phi);
+
+                seed[i] = Math.random() * 1000;
+                size[i] = 0.45 + Math.random() * 1.35;
+                mixv[i] = Math.random();
+                shell[i] = isShell ? 1.0 : 0.0;
+            }
+
+            treeGeometry = new THREE.BufferGeometry();
+            treeGeometry.setAttribute('position', new THREE.BufferAttribute(posTree, 3));
+            treeGeometry.setAttribute('positionTree', new THREE.BufferAttribute(posTree, 3));
+            treeGeometry.setAttribute('positionScatter', new THREE.BufferAttribute(posScatter, 3));
+            treeGeometry.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+            treeGeometry.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+            treeGeometry.setAttribute('aMix', new THREE.BufferAttribute(mixv, 1));
+            treeGeometry.setAttribute('aShell', new THREE.BufferAttribute(shell, 1));
+            treeGeometry.computeBoundingSphere();
+
+            const t0 = TREE_THEMES[STATE.currentThemeIndex] || TREE_THEMES[0];
+            treeUniforms = {
+                uTime: { value: 0 },
+                uMode: { value: 0 },
+                uScatterScale: { value: 1.0 },
+                uMorph: { value: 0.0 },
+                uFade: { value: t0.fade },
+                uPointSize: { value: t0.pointSize },
+                uTreeHeight: { value: CONFIG.particles.treeHeight },
+                uCol1: { value: new THREE.Color(t0.col1) },
+                uCol2: { value: new THREE.Color(t0.col2) },
+                uAccent: { value: new THREE.Color(t0.accent) }
+            };
+
+            treeMaterial = new THREE.ShaderMaterial({
+                uniforms: treeUniforms,
+                transparent: true,
+                depthWrite: false,
+                depthTest: true,
+                blending: THREE.AdditiveBlending,
+                vertexShader: `
+                    uniform float uTime;
+                    uniform float uMode;
+                    uniform float uScatterScale;
+                    uniform float uMorph;
+                    uniform float uPointSize;
+                    uniform float uTreeHeight;
+                    attribute vec3 positionTree;
+                    attribute vec3 positionScatter;
+                    attribute float aSeed;
+                    attribute float aSize;
+                    attribute float aMix;
+                    attribute float aShell;
+                    varying float vSeed;
+                    varying float vMix;
+                    varying float vDepth;
+                    varying float vH;
+                    varying float vShell;
+                    void main() {
+                        vSeed = aSeed;
+                        vMix = aMix;
+                        vShell = aShell;
+                        vec3 pTree = positionTree;
+                        float sway = sin(uTime * (1.2 + aSeed * 0.013) + aSeed * 0.11);
+                        pTree.y += sway * 0.18;
+                        pTree.x += cos(uTime * (0.7 + aSeed * 0.01) + aSeed * 0.07) * 0.09;
+                        vec3 pScatter = positionScatter * uScatterScale;
+
+                        float morph = clamp(uMorph, 0.0, 1.0);
+                        morph = morph * morph * (3.0 - 2.0 * morph);
+                        vec3 pos = mix(pTree, pScatter, morph);
+
+                        vH = clamp((pos.y + uTreeHeight * 0.5) / max(0.0001, uTreeHeight), 0.0, 1.0);
+                        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                        vDepth = -mvPosition.z;
+                        float s = uPointSize * aSize;
+                        s *= 220.0 / max(1.0, vDepth);
+                        s *= mix(0.95, 1.22, vShell);
+                        gl_PointSize = clamp(s, 1.0, 24.0);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    precision highp float;
+                    uniform float uTime;
+                    uniform float uFade;
+                    uniform vec3 uCol1;
+                    uniform vec3 uCol2;
+                    uniform vec3 uAccent;
+                    varying float vSeed;
+                    varying float vMix;
+                    varying float vDepth;
+                    varying float vH;
+                    varying float vShell;
+                    float hash(float n) { return fract(sin(n) * 43758.5453123); }
+                    void main() {
+                        vec2 uv = gl_PointCoord.xy - 0.5;
+                        float r = length(uv);
+                        float soft = smoothstep(0.5, 0.0, r);
+                        float n = hash(vSeed * 17.0);
+                        float tw = 0.65 + 0.35 * sin(uTime * (3.0 + n * 6.0) + vSeed * 0.11);
+                        tw = pow(clamp(tw, 0.0, 1.0), 2.0);
+
+                        float hg = smoothstep(0.02, 0.98, vH);
+                        hg = pow(hg, 1.15);
+                        vec3 grad = mix(uCol1, uCol2, hg);
+                        vec3 varCol = mix(uCol1, uCol2, vMix);
+                        vec3 base = mix(grad, varCol, 0.28);
+                        float accentPick = step(0.86, hash(vSeed * 91.7 + floor(uTime * 2.0)));
+                        vec3 col = mix(base, uAccent, accentPick * 0.8);
+
+                        float depthDim = 1.0 - smoothstep(12.0, 160.0, vDepth);
+                        float shellBoost = mix(0.75, 1.35, vShell);
+                        float heightBoost = 0.85 + 0.35 * smoothstep(0.15, 0.95, vH);
+                        float a = soft * (0.16 + tw * 0.86) * depthDim * uFade * shellBoost * heightBoost;
+                        if (a < 0.02) discard;
+                        gl_FragColor = vec4(col * a * 1.28, a);
+                    }
+                `
+            });
+
+            treePoints = new THREE.Points(treeGeometry, treeMaterial);
+            mainGroup.add(treePoints);
+        }
+
+        function createHeartPoints() {
+            if (heartPoints) {
+                mainGroup.remove(heartPoints);
+                if (heartGeometry) heartGeometry.dispose();
+                if (heartMaterial) heartMaterial.dispose();
+                heartPoints = null;
+            }
+
+            const count = CONFIG.particles.count;
+            const posModel = new Float32Array(count * 3);
+            const posScatter = new Float32Array(count * 3);
+            const seed = new Float32Array(count);
+            const size = new Float32Array(count);
+            const mixv = new Float32Array(count);
+            const shell = new Float32Array(count);
+
+            const scale = 8.2;
+            for (let i = 0; i < count; i++) {
+                let x = 0, y = 0;
+                for (let tries = 0; tries < 40; tries++) {
+                    const rx = (Math.random() * 2 - 1) * 1.35;
+                    const ry = (Math.random() * 2 - 1) * 1.35;
+
+                    const a = rx * rx + ry * ry - 1.0;
+                    const eq = a * a * a - rx * rx * ry * ry * ry;
+                    if (eq <= 0.0) { x = rx; y = ry; break; }
+                    if (tries === 39) { x = rx; y = ry; }
+                }
+
+                const z = (Math.random() - 0.5) * 2.4;
+
+                posModel[i * 3] = x * scale;
+                posModel[i * 3 + 1] = y * scale;
+                posModel[i * 3 + 2] = z;
+
+                const rScatter = 10 + Math.random() * 18;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                posScatter[i * 3] = rScatter * Math.sin(phi) * Math.cos(theta);
+                posScatter[i * 3 + 1] = rScatter * Math.sin(phi) * Math.sin(theta);
+                posScatter[i * 3 + 2] = rScatter * Math.cos(phi);
+
+                seed[i] = Math.random() * 1000;
+                size[i] = 0.55 + Math.random() * 1.25;
+                mixv[i] = Math.random();
+                shell[i] = (Math.random() < 0.88) ? 1.0 : 0.0;
+            }
+
+            heartGeometry = new THREE.BufferGeometry();
+            heartGeometry.setAttribute('position', new THREE.BufferAttribute(posModel, 3));
+            heartGeometry.setAttribute('positionTree', new THREE.BufferAttribute(posModel, 3));
+            heartGeometry.setAttribute('positionScatter', new THREE.BufferAttribute(posScatter, 3));
+            heartGeometry.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+            heartGeometry.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+            heartGeometry.setAttribute('aMix', new THREE.BufferAttribute(mixv, 1));
+            heartGeometry.setAttribute('aShell', new THREE.BufferAttribute(shell, 1));
+            heartGeometry.computeBoundingSphere();
+
+            const t0 = TREE_THEMES[STATE.currentThemeIndex] || TREE_THEMES[0];
+            heartUniforms = {
+                uTime: { value: 0 },
+                uMode: { value: 0 },
+                uScatterScale: { value: 1.0 },
+                uMorph: { value: 0.0 },
+                uFade: { value: t0.fade },
+                uPointSize: { value: t0.pointSize * 1.05 },
+                uTreeHeight: { value: 14.0 },
+                uCol1: { value: new THREE.Color(t0.col1) },
+                uCol2: { value: new THREE.Color(t0.col2) },
+                uAccent: { value: new THREE.Color(t0.accent) }
+            };
+
+            heartMaterial = new THREE.ShaderMaterial({
+                uniforms: heartUniforms,
+                transparent: true,
+                depthWrite: false,
+                depthTest: true,
+                blending: THREE.AdditiveBlending,
+                vertexShader: treeMaterial.vertexShader,
+                fragmentShader: treeMaterial.fragmentShader
+            });
+
+            heartPoints = new THREE.Points(heartGeometry, heartMaterial);
+            mainGroup.add(heartPoints);
+        }
+
+        function createSaturnPoints() {
+            if (saturnPoints) {
+                mainGroup.remove(saturnPoints);
+                if (saturnGeometry) saturnGeometry.dispose();
+                if (saturnMaterial) saturnMaterial.dispose();
+                saturnPoints = null;
+            }
+
+            const count = CONFIG.particles.count;
+            const posModel = new Float32Array(count * 3);
+            const posScatter = new Float32Array(count * 3);
+            const seed = new Float32Array(count);
+            const size = new Float32Array(count);
+            const mixv = new Float32Array(count);
+            const shell = new Float32Array(count);
+
+            const ringRatio = 0.58;
+            const bodyR = 6.6;
+            const ringInner = 9.0;
+            const ringOuter = 15.3;
+
+            for (let i = 0; i < count; i++) {
+                if (Math.random() < ringRatio) {
+                    const ang = Math.random() * Math.PI * 2.0;
+                    const rr = ringInner + (ringOuter - ringInner) * Math.sqrt(Math.random());
+                    const y = (Math.random() - 0.5) * 0.35;
+                    posModel[i * 3] = Math.cos(ang) * rr;
+                    posModel[i * 3 + 1] = y;
+                    posModel[i * 3 + 2] = Math.sin(ang) * rr;
+                    shell[i] = 1.0;
+                } else {
+                    const u = Math.random();
+                    const v = Math.random();
+                    const theta = 2.0 * Math.PI * u;
+                    const phi = Math.acos(2.0 * v - 1.0);
+                    const r = bodyR * Math.cbrt(Math.random());
+                    posModel[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                    posModel[i * 3 + 1] = r * Math.cos(phi);
+                    posModel[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+                    shell[i] = (Math.random() < 0.78) ? 1.0 : 0.0;
+                }
+
+                const rScatter = 10 + Math.random() * 18;
+                const theta2 = Math.random() * Math.PI * 2;
+                const phi2 = Math.acos(2 * Math.random() - 1);
+                posScatter[i * 3] = rScatter * Math.sin(phi2) * Math.cos(theta2);
+                posScatter[i * 3 + 1] = rScatter * Math.sin(phi2) * Math.sin(theta2);
+                posScatter[i * 3 + 2] = rScatter * Math.cos(phi2);
+
+                seed[i] = Math.random() * 1000;
+                size[i] = 0.55 + Math.random() * 1.25;
+                mixv[i] = Math.random();
+            }
+
+            saturnGeometry = new THREE.BufferGeometry();
+            saturnGeometry.setAttribute('position', new THREE.BufferAttribute(posModel, 3));
+            saturnGeometry.setAttribute('positionTree', new THREE.BufferAttribute(posModel, 3));
+            saturnGeometry.setAttribute('positionScatter', new THREE.BufferAttribute(posScatter, 3));
+            saturnGeometry.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+            saturnGeometry.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+            saturnGeometry.setAttribute('aMix', new THREE.BufferAttribute(mixv, 1));
+            saturnGeometry.setAttribute('aShell', new THREE.BufferAttribute(shell, 1));
+            saturnGeometry.computeBoundingSphere();
+
+            const t0 = TREE_THEMES[STATE.currentThemeIndex] || TREE_THEMES[0];
+            saturnUniforms = {
+                uTime: { value: 0 },
+                uMode: { value: 0 },
+                uScatterScale: { value: 1.0 },
+                uMorph: { value: 0.0 },
+                uFade: { value: t0.fade },
+                uPointSize: { value: t0.pointSize * 1.05 },
+                uTreeHeight: { value: 12.0 },
+                uCol1: { value: new THREE.Color(t0.col1) },
+                uCol2: { value: new THREE.Color(t0.col2) },
+                uAccent: { value: new THREE.Color(t0.accent) }
+            };
+
+            saturnMaterial = new THREE.ShaderMaterial({
+                uniforms: saturnUniforms,
+                transparent: true,
+                depthWrite: false,
+                depthTest: true,
+                blending: THREE.AdditiveBlending,
+                vertexShader: treeMaterial.vertexShader,
+                fragmentShader: treeMaterial.fragmentShader
+            });
+
+            saturnPoints = new THREE.Points(saturnGeometry, saturnMaterial);
+            mainGroup.add(saturnPoints);
+        }
+
+        function createBaseRing() {
+            if (baseRingPoints) {
+                mainGroup.remove(baseRingPoints);
+                if (baseRingGeometry) baseRingGeometry.dispose();
+                if (baseRingMaterial) baseRingMaterial.dispose();
+                baseRingPoints = null;
+            }
+
+            const count = 9000;
+            const pos = new Float32Array(count * 3);
+            const posScatter = new Float32Array(count * 3);
+            const seed = new Float32Array(count);
+            const size = new Float32Array(count);
+            const mixv = new Float32Array(count);
+
+            const y0 = -CONFIG.particles.treeHeight * 0.5 - 2.0;
+
+            for (let i = 0; i < count; i++) {
+                const ring = (Math.random() < 0.7);
+                const radius = ring ? (10.5 + Math.random() * 11.5) : (3.5 + Math.random() * 22.0);
+                const ang = Math.random() * Math.PI * 2.0;
+                const thickness = ring ? (Math.random() - 0.5) * 1.4 : (Math.random() - 0.5) * 2.8;
+                pos[i * 3] = Math.cos(ang) * (radius + thickness);
+                pos[i * 3 + 1] = y0 + (Math.random() - 0.5) * 0.8;
+                pos[i * 3 + 2] = Math.sin(ang) * (radius + thickness);
+
+                const rScatter = 10 + Math.random() * 18;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                posScatter[i * 3] = rScatter * Math.sin(phi) * Math.cos(theta);
+                posScatter[i * 3 + 1] = rScatter * Math.sin(phi) * Math.sin(theta);
+                posScatter[i * 3 + 2] = rScatter * Math.cos(phi);
+
+                seed[i] = Math.random() * 1000;
+                size[i] = 0.7 + Math.random() * 1.6;
+                mixv[i] = Math.random();
+            }
+
+            baseRingGeometry = new THREE.BufferGeometry();
+            baseRingGeometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            baseRingGeometry.setAttribute('positionScatter', new THREE.BufferAttribute(posScatter, 3));
+            baseRingGeometry.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+            baseRingGeometry.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+            baseRingGeometry.setAttribute('aMix', new THREE.BufferAttribute(mixv, 1));
+
+            const t0 = TREE_THEMES[STATE.currentThemeIndex] || TREE_THEMES[0];
+            baseRingUniforms = {
+                uTime: { value: 0 },
+                uMode: { value: 0 },
+                uScatterScale: { value: 1.0 },
+                uMorph: { value: 0.0 },
+                uFade: { value: 0.8 },
+                uPointSize: { value: 1.35 },
+                uCol1: { value: new THREE.Color(t0.accent) },
+                uCol2: { value: new THREE.Color(t0.col2) }
+            };
+
+            baseRingMaterial = new THREE.ShaderMaterial({
+                uniforms: baseRingUniforms,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+                vertexShader: `
+                    uniform float uTime;
+                    uniform float uMode;
+                    uniform float uScatterScale;
+                    uniform float uMorph;
+                    uniform float uPointSize;
+                    attribute vec3 positionScatter;
+                    attribute float aSeed;
+                    attribute float aSize;
+                    attribute float aMix;
+                    varying float vSeed;
+                    varying float vMix;
+                    varying float vDepth;
+                    void main() {
+                        vSeed = aSeed;
+                        vMix = aMix;
+                        vec3 p = position;
+                        p.y += sin(uTime * (1.2 + aSeed * 0.01) + aSeed) * 0.08;
+                        p.xz *= (1.0 + 0.02 * sin(uTime * 1.5 + aSeed));
+
+                        vec3 ps = positionScatter * uScatterScale;
+                        float morph = clamp(uMorph, 0.0, 1.0);
+                        morph = morph * morph * (3.0 - 2.0 * morph);
+                        vec3 finalPos = mix(p, ps, morph);
+                        vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
+                        vDepth = -mvPosition.z;
+                        float s = uPointSize * aSize;
+                        s *= 190.0 / max(1.0, vDepth);
+                        gl_PointSize = clamp(s, 1.0, 18.0);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    precision highp float;
+                    uniform float uTime;
+                    uniform float uFade;
+                    uniform vec3 uCol1;
+                    uniform vec3 uCol2;
+                    varying float vSeed;
+                    varying float vMix;
+                    varying float vDepth;
+                    float hash(float n) { return fract(sin(n) * 43758.5453123); }
+                    void main() {
+                        vec2 uv = gl_PointCoord.xy - 0.5;
+                        float r = length(uv);
+                        float soft = smoothstep(0.5, 0.0, r);
+                        float n = hash(vSeed * 13.1);
+                        float tw = 0.6 + 0.4 * sin(uTime * (2.4 + n * 4.0) + vSeed);
+                        vec3 col = mix(uCol1, uCol2, vMix);
+                        float depthDim = 1.0 - smoothstep(10.0, 200.0, vDepth);
+                        float a = soft * (0.12 + tw * 0.40) * depthDim * uFade;
+                        if (a < 0.02) discard;
+                        gl_FragColor = vec4(col * a * 1.45, a);
+                    }
+                `
+            });
+
+            baseRingPoints = new THREE.Points(baseRingGeometry, baseRingMaterial);
+            mainGroup.add(baseRingPoints);
+        }
+
+        function createAmbientSparkles() {
+            if (ambientSparkles) {
+                bgGroup.remove(ambientSparkles);
+                if (ambientGeometry) ambientGeometry.dispose();
+                if (ambientMaterial) ambientMaterial.dispose();
+                ambientSparkles = null;
+            }
+
+            const count = 6500;
+            const pos = new Float32Array(count * 3);
+            const seed = new Float32Array(count);
+            const size = new Float32Array(count);
+
+            for (let i = 0; i < count; i++) {
+                const r = 25 + Math.random() * 110;
+                const theta = Math.random() * Math.PI * 2;
+                const y = (Math.random() - 0.5) * 140;
+                pos[i * 3] = Math.cos(theta) * r + (Math.random() - 0.5) * 14;
+                pos[i * 3 + 1] = y;
+                pos[i * 3 + 2] = Math.sin(theta) * r + (Math.random() - 0.5) * 14;
+                seed[i] = Math.random() * 1000;
+                size[i] = 0.9 + Math.random();
+            }
+
+            ambientGeometry = new THREE.BufferGeometry();
+            ambientGeometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            ambientGeometry.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+            ambientGeometry.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+
+            const t0 = TREE_THEMES[STATE.currentThemeIndex] || TREE_THEMES[0];
+            ambientUniforms = {
+                uTime: { value: 0 },
+                uFade: { value: 0.60 },
+                uCol: { value: new THREE.Color(t0.accent) }
+            };
+
+            ambientMaterial = new THREE.ShaderMaterial({
+                uniforms: ambientUniforms,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+                vertexShader: `
+                    uniform float uTime;
+                    attribute float aSeed;
+                    attribute float aSize;
+                    varying float vSeed;
+                    varying float vDepth;
+                    void main() {
+                        vSeed = aSeed;
+                        vec3 p = position;
+                        p.x += sin(uTime * 0.15 + aSeed) * 0.25;
+                        p.z += cos(uTime * 0.15 + aSeed) * 0.25;
+                        vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
+                        vDepth = -mvPosition.z;
+                        float s = (0.9 + aSize) * 130.0 / max(1.0, vDepth);
+                        gl_PointSize = clamp(s, 1.0, 10.0);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    precision highp float;
+                    uniform float uTime;
+                    uniform float uFade;
+                    uniform vec3 uCol;
+                    varying float vSeed;
+                    varying float vDepth;
+                    float hash(float n) { return fract(sin(n) * 43758.5453123); }
+                    void main() {
+                        vec2 uv = gl_PointCoord.xy - 0.5;
+                        float r = length(uv);
+                        float soft = smoothstep(0.5, 0.0, r);
+                        float n = hash(vSeed * 13.1);
+                        float tw = 0.5 + 0.5 * sin(uTime * (1.2 + n * 1.5) + vSeed);
+                        float depthDim = 1.0 - smoothstep(30.0, 380.0, vDepth);
+                        float a = soft * (0.04 + tw * 0.14) * depthDim * uFade;
+                        if (a < 0.01) discard;
+                        gl_FragColor = vec4(uCol * a * 1.35, a);
+                    }
+                `
+            });
+
+            ambientSparkles = new THREE.Points(ambientGeometry, ambientMaterial);
+            bgGroup.add(ambientSparkles);
+        }
+
+        function createParticles() {
+            const dustGeo = new THREE.OctahedronGeometry(0.1, 0);
+
+            createTreePoints();
+            createHeartPoints();
+            createSaturnPoints();
+            createBaseRing();
+            createAmbientSparkles();
+
+            for(let i=0; i<CONFIG.particles.dustCount; i++) {
+                const mesh = new THREE.Mesh(dustGeo, matLib.dust); mesh.scale.setScalar(0.5 + Math.random());
+                mainGroup.add(mesh); particleSystem.push(new Particle(mesh, 'DUST', true));
+            }
+            createStarTopper();
+
+            setModelVisibility(STATE.model);
+        }
+
+        function createStarTopper() {
+            if (topperPoints) {
+                starGroup.remove(topperPoints);
+                if (topperGeometry) topperGeometry.dispose();
+                if (topperMaterial) topperMaterial.dispose();
+                topperPoints = null;
+            }
+
+            const count = 4200;
+            const pos = new Float32Array(count * 3);
+            const posScatter = new Float32Array(count * 3);
+            const seed = new Float32Array(count);
+            const size = new Float32Array(count);
+            const mixv = new Float32Array(count);
+            const shell = new Float32Array(count);
+
+            const scale = 1.8;
+            const thickness = 0.85;
+            for (let i = 0; i < count; i++) {
+                let x = 0, y = 0;
+                for (let tries = 0; tries < 40; tries++) {
+                    const rx = (Math.random() * 2 - 1) * 1.35;
+                    const ry = (Math.random() * 2 - 1) * 1.35;
+
+                    const aa = rx * rx + ry * ry - 1.0;
+                    const eq = aa * aa * aa - rx * rx * ry * ry * ry;
+                    if (eq <= 0.0) { x = rx; y = ry; break; }
+                    if (tries === 39) { x = rx; y = ry; }
+                }
+
+                const z = (Math.random() - 0.5) * thickness;
+                pos[i * 3] = x * scale;
+                pos[i * 3 + 1] = y * scale;
+                pos[i * 3 + 2] = z;
+
+                const rScatter = 6 + Math.random() * 8;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                posScatter[i * 3] = rScatter * Math.sin(phi) * Math.cos(theta);
+                posScatter[i * 3 + 1] = rScatter * Math.sin(phi) * Math.sin(theta);
+                posScatter[i * 3 + 2] = rScatter * Math.cos(phi);
+
+                seed[i] = Math.random() * 1000;
+                size[i] = 0.55 + Math.random() * 0.85;
+                mixv[i] = Math.random();
+                shell[i] = 1.0;
+            }
+
+            topperGeometry = new THREE.BufferGeometry();
+            topperGeometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            topperGeometry.setAttribute('positionTree', new THREE.BufferAttribute(pos, 3));
+            topperGeometry.setAttribute('positionScatter', new THREE.BufferAttribute(posScatter, 3));
+            topperGeometry.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+            topperGeometry.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+            topperGeometry.setAttribute('aMix', new THREE.BufferAttribute(mixv, 1));
+            topperGeometry.setAttribute('aShell', new THREE.BufferAttribute(shell, 1));
+            topperGeometry.computeBoundingSphere();
+
+            const t0 = TREE_THEMES[STATE.currentThemeIndex] || TREE_THEMES[0];
+            topperUniforms = {
+                uTime: { value: 0 },
+                uMode: { value: 0 },
+                uScatterScale: { value: 1.0 },
+                uMorph: { value: 0.0 },
+                uFade: { value: 0.72 },
+                uPointSize: { value: 1.25 },
+                uTreeHeight: { value: 6.0 },
+                uCol1: { value: new THREE.Color(t0.col2) },
+                uCol2: { value: new THREE.Color(t0.accent) },
+                uAccent: { value: new THREE.Color(0xffffff) }
+            };
+
+            topperMaterial = new THREE.ShaderMaterial({
+                uniforms: topperUniforms,
+                transparent: true,
+                depthWrite: false,
+                depthTest: true,
+                blending: THREE.AdditiveBlending,
+                vertexShader: treeMaterial.vertexShader,
+                fragmentShader: treeMaterial.fragmentShader
+            });
+
+            topperPoints = new THREE.Points(topperGeometry, topperMaterial);
+            topperPoints.position.set(0, CONFIG.particles.treeHeight / 2 + 1.25, 0);
+
+            const halo = new THREE.Mesh(new THREE.PlaneGeometry(7, 7), new THREE.MeshBasicMaterial({ 
+                map: new THREE.TextureLoader().load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/textures/sprites/glow.png'), 
+                blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.16, color: 0xffffff 
+            }));
+            topperPoints.add(halo);
+            starGroup.add(topperPoints);
+            STATE.starMesh = topperPoints;
+            STATE.starHaloMesh = halo;
+        }
+
+        function setModelVisibility(modelName) {
+            const isTree = modelName === 'TREE';
+            if (treePoints) treePoints.visible = isTree;
+            if (baseRingPoints) baseRingPoints.visible = isTree;
+            if (topperPoints) topperPoints.visible = isTree;
+            if (starGroup) starGroup.visible = isTree;
+            if (heartPoints) heartPoints.visible = (modelName === 'HEART');
+            if (saturnPoints) saturnPoints.visible = (modelName === 'SATURN');
+
+            for (const p of particleSystem) {
+                if (p && p.type === 'DUST' && p.mesh) {
+                    p.mesh.visible = isTree;
+                }
+            }
+        }
+
+        function switchModel(modelIndex) {
+            const idx = ((modelIndex % MODEL_COUNT) + MODEL_COUNT) % MODEL_COUNT;
+            STATE.model = MODELS[idx];
+            setModelVisibility(STATE.model);
+        }
+
+        function switchTheme(themeIndex) {
+            STATE.currentThemeIndex = themeIndex;
+            const t0 = TREE_THEMES[themeIndex] || TREE_THEMES[0];
+            if (ambientUniforms) ambientUniforms.uCol.value.setHex(t0.accent);
+            if (treeUniforms) {
+                treeUniforms.uFade.value = t0.fade;
+                treeUniforms.uPointSize.value = t0.pointSize;
+                treeUniforms.uCol1.value.setHex(t0.col1);
+                treeUniforms.uCol2.value.setHex(t0.col2);
+                treeUniforms.uAccent.value.setHex(t0.accent);
+            }
+            if (heartUniforms) {
+                heartUniforms.uFade.value = t0.fade;
+                heartUniforms.uPointSize.value = t0.pointSize * 1.05;
+                heartUniforms.uCol1.value.setHex(t0.col1);
+                heartUniforms.uCol2.value.setHex(t0.col2);
+                heartUniforms.uAccent.value.setHex(t0.accent);
+            }
+            if (saturnUniforms) {
+                saturnUniforms.uFade.value = t0.fade;
+                saturnUniforms.uPointSize.value = t0.pointSize * 1.05;
+                saturnUniforms.uCol1.value.setHex(t0.col1);
+                saturnUniforms.uCol2.value.setHex(t0.col2);
+                saturnUniforms.uAccent.value.setHex(t0.accent);
+            }
+            if (baseRingUniforms) {
+                baseRingUniforms.uCol1.value.setHex(t0.accent);
+                baseRingUniforms.uCol2.value.setHex(t0.col2);
+            }
+            if (topperUniforms) {
+                topperUniforms.uCol1.value.setHex(t0.col2);
+                topperUniforms.uCol2.value.setHex(t0.accent);
+            }
+
+            let currentFrameMat;
+            if (STATE.currentThemeIndex === 0) currentFrameMat = matLib.frameGold;
+            else if (STATE.currentThemeIndex === 1) currentFrameMat = matLib.frameIce;
+            else if (STATE.currentThemeIndex === 2) currentFrameMat = matLib.frameBarbie;
+            else if (STATE.currentThemeIndex === 3) currentFrameMat = matLib.frameGold;
+            else if (STATE.currentThemeIndex === 4) currentFrameMat = matLib.frameBarbie;
+
+            for (const p of particleSystem) {
+                if (p && p.type === 'PHOTO' && p.mesh && p.mesh.children && p.mesh.children.length >= 3) {
+                    const frame = p.mesh.children[0];
+                    const border = p.mesh.children[2];
+                    if (frame && frame.isMesh) frame.material = currentFrameMat;
+                    if (border) border.visible = (STATE.currentThemeIndex !== 0);
+                }
+            }
+        }
+
+        function addPhotoToScene(texture) {
+            if (!texture.image) return;
+            const aspect = texture.image.width / texture.image.height;
+            let photoW = (aspect >= 1) ? 1.2 : 1.2 * aspect, photoH = (aspect >= 1) ? 1.2 / aspect : 1.2;
+
+            const group = new THREE.Group();
+            const frameGeo = new THREE.BoxGeometry(photoW + 0.15, photoH + 0.15, 0.1);
+
+            let currentFrameMat;
+            if (STATE.currentThemeIndex === 0) currentFrameMat = matLib.frameGold;
+            else if (STATE.currentThemeIndex === 1) currentFrameMat = matLib.frameIce;
+            else if (STATE.currentThemeIndex === 2) currentFrameMat = matLib.frameBarbie;
+            else if (STATE.currentThemeIndex === 3) currentFrameMat = matLib.frameGold;
+            else if (STATE.currentThemeIndex === 4) currentFrameMat = matLib.frameBarbie;
+
+            const frame = new THREE.Mesh(frameGeo, currentFrameMat);
+            group.add(frame);
+
+            const photo = new THREE.Mesh(new THREE.PlaneGeometry(photoW, photoH), new THREE.MeshBasicMaterial({ map: texture }));
+            photo.position.z = 0.06; group.add(photo);
+
+            const borderGeo = new THREE.BoxGeometry(photoW + 0.25, photoH + 0.25, 0.08);
+            const border = new THREE.Mesh(borderGeo, matLib.snowBorder);
+            border.position.z = -0.02; border.visible = (STATE.currentThemeIndex !== 0); 
+            group.add(border);
+
+            photoMeshGroup.add(group); particleSystem.push(new Particle(group, 'PHOTO', false));
+        }
+
+        function handleImageUpload(e) {
+            if(!e.target.files.length) return;
+            Array.from(e.target.files).forEach(f => {
+                const reader = new FileReader();
+                reader.onload = (ev) => new THREE.TextureLoader().load(ev.target.result, t => {
+                    t.colorSpace = THREE.SRGBColorSpace;
+                    addPhotoToScene(t);
+                });
+                reader.readAsDataURL(f);
+            });
+        }
+
+        function clearPhotos() {
+            const photosToRemove = particleSystem.filter(p => p.type === 'PHOTO');
+            photosToRemove.forEach(p => {
+                photoMeshGroup.remove(p.mesh);
+
+                p.mesh.traverse(child => {
+                    if (child.isMesh) {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                           if(Array.isArray(child.material)) child.material.forEach(m=>m.dispose());
+                           else child.material.dispose();
+                        }
+                    }
+                });
+            });
+            particleSystem = particleSystem.filter(p => p.type !== 'PHOTO');
+        }
+
+        function exportSceneData() {
+            const photos = particleSystem.filter(p => p.type === 'PHOTO').map(p => {
+                try {
+                    return p.mesh.children[1].material.map.image.src; 
+                } catch(e) { return null; }
+            }).filter(src => src !== null);
+
+            const exportData = {
+                music: STATE.musicData, 
+                letter: STATE.letterContent,
+                photos: photos,
+                theme: STATE.currentThemeIndex,
+                model: STATE.model,
+                title: document.getElementById('main-title').innerText, 
+                isGestureSwitchEnabled: STATE.isGestureSwitchEnabled 
+            };
+
+            const blob = new Blob([JSON.stringify(exportData)], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "tree.json";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importSceneData(jsonData) {
+            try {
+                const data = JSON.parse(jsonData);
+
+                if (data.title) {
+                    document.getElementById('main-title').innerText = data.title;
+                }
+
+                if (data.isGestureSwitchEnabled !== undefined) {
+                    STATE.isGestureSwitchEnabled = data.isGestureSwitchEnabled;
+                    const btn = document.getElementById('btn-switch-theme');
+                    if (STATE.isGestureSwitchEnabled) btn.classList.remove('disabled');
+                    else btn.classList.add('disabled');
+                }
+
+                if (data.letter) STATE.letterContent = data.letter;
+
+                if (data.music) {
+                    STATE.musicData = data.music;
+                    const audioEl = document.getElementById('bg-music');
+                    audioEl.src = data.music;
+                    audioEl.currentTime = 0;
+                    audioEl.play().catch(console.warn);
+                }
+
+                clearPhotos();
+                if (data.photos && Array.isArray(data.photos)) {
+                    const loader = new THREE.TextureLoader();
+                    data.photos.forEach(src => {
+                        loader.load(src, t => { 
+                            t.colorSpace = THREE.SRGBColorSpace; 
+                            addPhotoToScene(t); 
+                        });
+                    });
+                }
+
+                if (data.theme !== undefined) {
+                    switchTheme(data.theme);
+                }
+
+                if (data.model !== undefined) {
+                    const idx = MODELS.indexOf(String(data.model).toUpperCase());
+                    switchModel(idx >= 0 ? idx : 0);
+                }
+
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log("Auto fullscreen blocked by browser policy:", err);
+                });
+            } catch (e) {
+                console.error("Import failed:", e);
+                alert("文件格式错误，无法导入");
+            }
+        }
+
+        function setupLetterSystem() {
+            const modal = document.getElementById('letter-editor-modal');
+            const txt = document.getElementById('letter-text-input');
+            const btnOpen = document.getElementById('btn-write-letter');
+            const btnCancel = document.getElementById('btn-cancel-letter');
+            const btnSave = document.getElementById('btn-save-letter');
+            const btnClose = document.getElementById('btn-close-letter-mode');
+
+            btnOpen.onclick = (e) => {
+                e.stopPropagation();
+                modal.style.display = 'flex';
+                txt.value = STATE.letterContent;
+                txt.focus();
+            };
+
+            btnCancel.onclick = (e) => {
+                e.stopPropagation();
+                modal.style.display = 'none';
+            };
+
+            btnSave.onclick = (e) => {
+                e.stopPropagation();
+                if (txt.value.trim()) STATE.letterContent = txt.value.trim();
+                modal.style.display = 'none';
+            };
+
+            btnClose.onclick = (e) => {
+                e.stopPropagation();
+                exitLetterMode();
+            };
+        }
+
+        function enterLetterMode() {
+            if (STATE.mode === 'LETTER') return;
+            STATE.mode = 'LETTER';
+            const overlay = document.getElementById('letter-overlay'), paper = document.querySelector('.letter-paper'), display = document.getElementById('letter-content-display');
+            overlay.style.display = 'flex'; requestAnimationFrame(() => { overlay.style.opacity = 1; paper.style.transform = 'translateY(0)'; });
+            display.textContent = ''; display.classList.remove('cursor');
+
+            let i = 0;
+            const typeWriter = () => {
+                if (STATE.mode !== 'LETTER') return;
+                if (i < STATE.letterContent.length) { display.textContent += STATE.letterContent.charAt(i++); display.scrollTop = display.scrollHeight; STATE.letterTyper = setTimeout(typeWriter, 100); }
+                else display.classList.remove('cursor');
+            };
+            STATE.letterStartTimer = setTimeout(() => { if(STATE.mode==='LETTER') { display.classList.add('cursor'); typeWriter(); } }, 2000);
+        }
+
+        function exitLetterMode() {
+            STATE.mode = 'TREE'; clearTimeout(STATE.letterTyper); clearTimeout(STATE.letterStartTimer);
+            const overlay = document.getElementById('letter-overlay'), paper = document.querySelector('.letter-paper');
+            overlay.style.opacity = 0; paper.style.transform = 'translateY(20px)';
+            setTimeout(() => { overlay.style.display = 'none'; }, 500);
+            STATE.spinVel.x = 0;
+            STATE.spinVel.y = 0;
+        }
+
+        async function initMediaPipe() {
+            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+            handLandmarker = await HandLandmarker.createFromOptions(vision, { baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`, delegate: "GPU" }, runningMode: "VIDEO", numHands: 1 });
+            video = document.getElementById('webcam'); canvasCtx = document.getElementById('webcam-preview').getContext('2d'); drawingUtils = new DrawingUtils(canvasCtx);
+
+            if (navigator.mediaDevices?.getUserMedia) {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: {ideal: 640}, height: {ideal: 480} } });
+                video.srcObject = stream;
+                video.addEventListener("loadeddata", () => { 
+                    video.play(); 
+                    document.getElementById('webcam-wrapper').style.opacity = 1;
+                    const aspect = video.videoWidth / video.videoHeight;
+                    document.getElementById('webcam-wrapper').style.height = (120/aspect) + 'px';
+                    document.getElementById('webcam-preview').width = video.videoWidth;
+                    document.getElementById('webcam-preview').height = video.videoHeight;
+                    predictWebcam(); 
+                });
+            }
+        }
+
+        let lastVideoTime = -1;
+        async function predictWebcam() {
+            if (lastVideoTime !== video.currentTime && handLandmarker) {
+                lastVideoTime = video.currentTime;
+                const result = handLandmarker.detectForVideo(video, performance.now());
+                canvasCtx.clearRect(0, 0, canvasCtx.canvas.width, canvasCtx.canvas.height);
+                canvasCtx.drawImage(video, 0, 0, canvasCtx.canvas.width, canvasCtx.canvas.height);
+                if (result.landmarks?.[0]) {
+                    drawingUtils.drawConnectors(result.landmarks[0], HandLandmarker.HAND_CONNECTIONS, { color: "#d4af37", lineWidth: 3 });
+                    drawingUtils.drawLandmarks(result.landmarks[0], { color: "#ffffff", lineWidth: 1, radius: 3 });
+                    processGestures(result.landmarks[0]);
+                } else STATE.hand.detected = false;
+            }
+            requestAnimationFrame(predictWebcam);
+        }
+
+        function processGestures(lm) {
+            STATE.hand.detected = true;
+            if (STATE.mode === 'LETTER') return;
+
+            const dist = (i, j) => Math.hypot(lm[i].x - lm[j].x, lm[i].y - lm[j].y);
+            const dIndex = dist(8,0), dMiddle = dist(12,0), dRing = dist(16,0), dPinky = dist(20,0);
+            const palmSize = dist(0, 9); 
+
+            if (dist(4,8) < 0.05 && dMiddle > 0.15 && dMiddle > dIndex * 1.2) {
+                if (Date.now() - STATE.letterLastTriggerTime > 1000) { STATE.letterLastTriggerTime = Date.now(); enterLetterMode(); }
+                return;
+            }
+
+            const areFourFingersOpen = (dIndex > palmSize * 1.3) && 
+                                     (dMiddle > palmSize * 1.3) && 
+                                     (dRing > palmSize * 1.3) && 
+                                     (dPinky > palmSize * 1.3);
+            const isThumbTucked = dist(4, 9) < palmSize * 0.6;
+            const isOldSwitchGesture = areFourFingersOpen && isThumbTucked;
+
+            const isThumbExtended = dist(4, 9) > palmSize * 0.85; 
+            const isIndexCurled = dist(8, 9) < palmSize * 0.65;  
+            const isMiddleCurled = dist(12, 9) < palmSize * 0.65; 
+            const isRingCurled = dist(16, 9) < palmSize * 0.65;  
+            const isPinkyCurled = dist(20, 9) < palmSize * 0.65; 
+
+            const isThumbsUpGesture = isThumbExtended && isIndexCurled && isMiddleCurled && isRingCurled && isPinkyCurled;
+
+            if (isOldSwitchGesture || isThumbsUpGesture) {
+                if (STATE.isGestureSwitchEnabled) {
+                    if (Date.now() - STATE.gestureDebounceTimer > 2000) { 
+                        switchTheme((STATE.currentThemeIndex + 1) % THEME_COUNT); 
+                        STATE.gestureDebounceTimer = Date.now(); 
+                    }
+                }
+            }
+
+            const isPointing = dIndex > 0.1 && dMiddle < dIndex*0.7 && dRing < dIndex*0.7;
+            const avgSpread = (dIndex+dMiddle+dRing+dPinky)/4, isPalmOpen = avgSpread > CONFIG.gestures.palmOpenThreshold;
+
+            if (isPointing) { 
+                STATE.mode = 'FOCUS';
+                if (!STATE.wasPointing) {
+                    const photos = particleSystem.filter(p => p.type === 'PHOTO');
+                    STATE.focusTarget = photos.length ? photos[(++STATE.currentPhotoIndex)%photos.length].mesh : STATE.starMesh;
+                }
+                STATE.wasPointing = true; STATE.hasPalmCenter = false; STATE.spinVel.x *= 0.9; STATE.spinVel.y *= 0.9;
+            } else { 
+                STATE.wasPointing = false;
+                if (isPalmOpen) {
+                    if (STATE.mode !== 'SCATTER' || !STATE.hasPalmCenter) {
+                        STATE.palmCenter = {x: lm[9].x, y: lm[9].y}; STATE.hasPalmCenter = true; STATE.gestureBaseSpread = avgSpread; STATE.scatterScale = 1.0;
+                    }
+                    STATE.mode = 'SCATTER';
+                    if (STATE.gestureBaseSpread) STATE.scatterScale += (THREE.MathUtils.clamp(Math.pow(STATE.gestureBaseSpread/avgSpread, 2), 0.1, 5.0) - STATE.scatterScale) * 0.15;
+                    const gain = CONFIG.gestures.sensitivity, dx = lm[9].x - STATE.palmCenter.x, dy = lm[9].y - STATE.palmCenter.y;
+                    STATE.spinVel.x += (THREE.MathUtils.clamp(-dy*gain, -3, 3) - STATE.spinVel.x) * 0.2;
+                    STATE.spinVel.y += (THREE.MathUtils.clamp(dx*gain, -3, 3) - STATE.spinVel.y) * 0.2;
+                } else {
+                    STATE.mode = 'TREE'; STATE.hasPalmCenter = false; STATE.scatterScale = 1.0; STATE.spinVel.x *= 0.9; STATE.spinVel.y *= 0.9;
+                }
+            }
+
+            if (STATE.mode !== 'FOCUS') {
+                STATE.hand.x += ((lm[9].x - 0.5)*3.0 - STATE.hand.x) * 0.1;
+                STATE.hand.y += ((lm[9].y - 0.5)*3.0 - STATE.hand.y) * 0.1;
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta(); STATE.time = clock.elapsedTime;
+            const inputX = STATE.hand.detected ? STATE.hand.x : 0; 
+            
+            const morphTarget = (STATE.mode === 'TREE') ? 0.0 : 1.0;
+            STATE.morph += (morphTarget - STATE.morph) * (1.0 - Math.exp(-dt * 6.0));
+            
+            if (treeUniforms) {
+                treeUniforms.uTime.value = STATE.time;
+                treeUniforms.uScatterScale.value = STATE.scatterScale;
+                treeUniforms.uMorph.value = STATE.morph;
+                if (STATE.mode === 'TREE') treeUniforms.uMode.value = 0;
+                else if (STATE.mode === 'SCATTER') treeUniforms.uMode.value = 1;
+                else if (STATE.mode === 'FOCUS') treeUniforms.uMode.value = 2;
+                else if (STATE.mode === 'LETTER') treeUniforms.uMode.value = 3;
+                treeUniforms.uFade.value = (STATE.mode === 'FOCUS') ? 0.18 : (TREE_THEMES[STATE.currentThemeIndex]?.fade ?? 1.0);
+            }
+
+            if (heartUniforms) {
+                heartUniforms.uTime.value = STATE.time;
+                heartUniforms.uScatterScale.value = STATE.scatterScale;
+                heartUniforms.uMorph.value = STATE.morph;
+                if (STATE.mode === 'TREE') heartUniforms.uMode.value = 0;
+                else if (STATE.mode === 'SCATTER') heartUniforms.uMode.value = 1;
+                else if (STATE.mode === 'FOCUS') heartUniforms.uMode.value = 2;
+                else if (STATE.mode === 'LETTER') heartUniforms.uMode.value = 3;
+                heartUniforms.uFade.value = (STATE.mode === 'FOCUS') ? 0.18 : (TREE_THEMES[STATE.currentThemeIndex]?.fade ?? 1.0);
+            }
+
+            if (saturnUniforms) {
+                saturnUniforms.uTime.value = STATE.time;
+                saturnUniforms.uScatterScale.value = STATE.scatterScale;
+                saturnUniforms.uMorph.value = STATE.morph;
+                if (STATE.mode === 'TREE') saturnUniforms.uMode.value = 0;
+                else if (STATE.mode === 'SCATTER') saturnUniforms.uMode.value = 1;
+                else if (STATE.mode === 'FOCUS') saturnUniforms.uMode.value = 2;
+                else if (STATE.mode === 'LETTER') saturnUniforms.uMode.value = 3;
+                saturnUniforms.uFade.value = (STATE.mode === 'FOCUS') ? 0.18 : (TREE_THEMES[STATE.currentThemeIndex]?.fade ?? 1.0);
+            }
+
+            if (baseRingUniforms) {
+                baseRingUniforms.uTime.value = STATE.time;
+                baseRingUniforms.uScatterScale.value = STATE.scatterScale;
+                baseRingUniforms.uMorph.value = STATE.morph;
+                baseRingUniforms.uMode.value = (STATE.mode === 'SCATTER' || STATE.mode === 'LETTER') ? 1 : 0;
+                baseRingUniforms.uFade.value = (STATE.mode === 'TREE') ? 0.95 : (STATE.mode === 'FOCUS' ? 0.20 : 0.45);
+            }
+
+            if (ambientUniforms) {
+                ambientUniforms.uTime.value = STATE.time;
+                ambientUniforms.uFade.value = (STATE.mode === 'FOCUS') ? 0.40 : 0.65;
+            }
+
+            if (topperUniforms) {
+                topperUniforms.uTime.value = STATE.time;
+                topperUniforms.uScatterScale.value = STATE.scatterScale;
+                topperUniforms.uMorph.value = STATE.morph;
+                if (STATE.mode === 'TREE') topperUniforms.uMode.value = 0;
+                else if (STATE.mode === 'SCATTER') topperUniforms.uMode.value = 1;
+                else if (STATE.mode === 'FOCUS') topperUniforms.uMode.value = 2;
+                else if (STATE.mode === 'LETTER') topperUniforms.uMode.value = 3;
+                topperUniforms.uFade.value = (STATE.mode === 'FOCUS') ? 0.55 : 1.0;
+            }
+
+            if (STATE.mode === 'LETTER') {
+                STATE.rotation.x = THREE.MathUtils.lerp(STATE.rotation.x, Math.PI/4, dt * 1.5); STATE.rotation.y -= 0.1 * dt;
+            } else if (STATE.mode === 'TREE') {
+                const baseSpeed = (STATE.currentThemeIndex === 1) ? 0.6 : 0.4;
+                STATE.rotation.y -= baseSpeed * dt; 
+                STATE.rotation.x = THREE.MathUtils.lerp(STATE.rotation.x, 0.15, dt * 2.0);
+                mainGroup.rotation.z = THREE.MathUtils.lerp(mainGroup.rotation.z, inputX * 0.1, dt * 2);
+            } else if (STATE.mode === 'SCATTER') {
+                STATE.rotation.y += STATE.spinVel.y * dt; STATE.rotation.x += STATE.spinVel.x * dt;
+                if (!STATE.hand.detected) { STATE.spinVel.x *= 0.95; STATE.spinVel.y *= 0.95; }
+            } else if (STATE.mode === 'FOCUS') {
+                _invMatrix.copy(mainGroup.matrixWorld).invert();
+            }
+
+            mainGroup.rotation.y = STATE.rotation.y; mainGroup.rotation.x = STATE.rotation.x; 
+            
+            if (galaxySystem && galaxySystem.visible) {
+                bgGroup.rotation.y -= 0.05 * dt; 
+            } else if ((snowSystem && snowSystem.visible) || (heartSystem && heartSystem.visible)) {
+                const sys = snowSystem.visible ? snowSystem : heartSystem;
+                const positions = sys.geometry.attributes.position.array;
+                const velocities = sys.geometry.attributes.velocity.array;
+                const count = (snowSystem.visible) ? CONFIG.particles.snowCount : 1500;
+                
+                for(let i=0; i<count; i++) {
+                    positions[i*3+1] -= CONFIG.particles.snowSpeed * velocities[i] * dt;
+                    if (positions[i*3+1] < -50) {
+                        positions[i*3+1] = 50;
+                    }
+                }
+                sys.geometry.attributes.position.needsUpdate = true;
+                bgGroup.rotation.y -= 0.02 * dt; 
+            }
+
+            if (STATE.starMesh) {
+                STATE.starMesh.rotation.y -= dt; STATE.starMesh.rotation.z = Math.sin(STATE.time) * 0.2;
+                STATE.starMesh.scale.setScalar(1.0 + Math.sin(STATE.time * 2) * 0.1);
+            }
+
+            particleSystem.forEach(p => p.update(dt, STATE.time, STATE.mode, STATE.focusTarget, (STATE.mode === 'FOCUS' ? _invMatrix : null)));
+            composer.render();
+        }
+
+        function setupEvents() {
+            window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight); });
+            
+            const fileInput = document.getElementById('file-input');
+            document.getElementById('btn-add-photo').onclick = (e) => { e.stopPropagation(); fileInput.click(); };
+            fileInput.onchange = handleImageUpload;
+
+            const musicInput = document.getElementById('music-input'), audioEl = document.getElementById('bg-music');
+            document.getElementById('btn-bg-music').onclick = (e) => { e.stopPropagation(); musicInput.click(); };
+            
+            musicInput.onchange = (e) => { 
+                if(e.target.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function(evt) {
+                        STATE.musicData = evt.target.result; 
+                        audioEl.src = evt.target.result; 
+                        audioEl.currentTime = 0; 
+                        audioEl.play().catch(console.warn); 
+                    };
+                    reader.readAsDataURL(e.target.files[0]);
+                } 
+            };
+
+            document.getElementById('btn-set-title').onclick = (e) => {
+                e.stopPropagation();
+                const currentTitle = document.getElementById('main-title').innerText;
+                const newTitle = prompt("请输入页面标题:", currentTitle);
+                if (newTitle !== null) {
+                    document.getElementById('main-title').innerText = newTitle;
+                }
+            };
+
+            const fsBtn = document.getElementById('btn-fullscreen');
+            fsBtn.onclick = (e) => { e.stopPropagation(); document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); };
+            
+            document.addEventListener('fullscreenchange', () => { 
+                const isFs = !!document.fullscreenElement;
+                fsBtn.textContent = isFs ? '取消全屏' : '全屏显示'; 
+                
+                const colMedia = document.getElementById('col-media');
+                const btnImport = document.getElementById('btn-import');
+                const btnExport = document.getElementById('btn-export');
+                const btnSwitch = document.getElementById('btn-switch-theme');
+                const btnModel = document.getElementById('btn-switch-model');
+                const btnGuide = document.getElementById('btn-gesture-guide');
+
+                if (isFs) {
+                    colMedia.style.display = 'none'; 
+                    btnImport.style.display = 'none'; 
+                    btnExport.style.display = 'none'; 
+                    btnSwitch.style.display = 'none';
+                    btnModel.style.display = 'none';
+                    btnGuide.style.display = 'none';
+                } else {
+                    colMedia.style.display = 'flex';
+                    btnImport.style.display = 'block';
+                    btnExport.style.display = 'block';
+                    btnSwitch.style.display = 'block';
+                    btnModel.style.display = 'block';
+                    btnGuide.style.display = 'block';
+                }
+            });
+
+            document.getElementById('btn-export').onclick = (e) => { e.stopPropagation(); exportSceneData(); };
+            
+            const importInput = document.getElementById('import-input');
+            document.getElementById('btn-import').onclick = (e) => { e.stopPropagation(); importInput.click(); };
+            importInput.onchange = (e) => {
+                if (e.target.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = (evt) => importSceneData(evt.target.result);
+                    reader.readAsText(e.target.files[0]);
+                }
+            };
+
+            const btnSwitch = document.getElementById('btn-switch-theme');
+            btnSwitch.onclick = (e) => {
+                e.stopPropagation();
+                switchTheme((STATE.currentThemeIndex + 1) % THEME_COUNT);
+            };
+            btnSwitch.oncontextmenu = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                STATE.isGestureSwitchEnabled = !STATE.isGestureSwitchEnabled;
+                if (STATE.isGestureSwitchEnabled) btnSwitch.classList.remove('disabled');
+                else btnSwitch.classList.add('disabled');
+            };
+
+            const btnModel = document.getElementById('btn-switch-model');
+            btnModel.onclick = (e) => {
+                e.stopPropagation();
+                switchModel((MODELS.indexOf(STATE.model) + 1) % MODEL_COUNT);
+            };
+
+            const guideOverlay = document.getElementById('gesture-guide-overlay');
+            const guideModal = document.getElementById('gesture-guide-modal');
+            const btnGuide = document.getElementById('btn-gesture-guide');
+            const btnGuideClose = document.getElementById('btn-close-gesture-guide');
+
+            const openGuide = (e) => {
+                if (e) e.stopPropagation();
+                guideOverlay.style.display = 'flex';
+            };
+            const closeGuide = (e) => {
+                if (e) e.stopPropagation();
+                guideOverlay.style.display = 'none';
+            };
+
+            btnGuide.onclick = openGuide;
+            btnGuideClose.onclick = closeGuide;
+            guideOverlay.onclick = closeGuide;
+            guideModal.onclick = (e) => e.stopPropagation();
+        }
+
+        init();
+    </script>
+</body>
+</html>
