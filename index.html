@@ -120,6 +120,8 @@
                 <button id="btn-switch-theme" class="control-btn">颜色切换</button>
                 <button id="btn-switch-model" class="control-btn">模型切换</button>
                 <button id="btn-gesture-guide" class="control-btn">手势指南</button>
+                <button id="btn-start-camera" class="control-btn">开启摄像头</button>
+                <div id="camera-status"></div>
             </div>
         </div>
         <input type="file" id="file-input" multiple accept="image/*">
@@ -296,7 +298,7 @@
             
             switchTheme(0);
 
-            initMediaPipe().catch(console.warn);
+            ensureHandLandmarker().catch(() => {});
 
             const loader = document.getElementById('loader');
             loader.style.opacity = 0;
@@ -1839,6 +1841,8 @@
                 const btnSwitch = document.getElementById('btn-switch-theme');
                 const btnModel = document.getElementById('btn-switch-model');
                 const btnGuide = document.getElementById('btn-gesture-guide');
+                const btnCam = document.getElementById('btn-start-camera');
+                const camStatus = document.getElementById('camera-status');
 
                 if (isFs) {
                     colMedia.style.display = 'none'; 
@@ -1847,6 +1851,8 @@
                     btnSwitch.style.display = 'none';
                     btnModel.style.display = 'none';
                     btnGuide.style.display = 'none';
+                    if (btnCam) btnCam.style.display = 'none';
+                    if (camStatus) camStatus.style.display = 'none';
                 } else {
                     colMedia.style.display = 'flex';
                     btnImport.style.display = 'block';
@@ -1854,8 +1860,11 @@
                     btnSwitch.style.display = 'block';
                     btnModel.style.display = 'block';
                     btnGuide.style.display = 'block';
+                    if (btnCam) btnCam.style.display = 'block';
+                    if (camStatus && camStatus.textContent) camStatus.style.display = 'block';
                 }
             });
+
 
             document.getElementById('btn-export').onclick = (e) => { e.stopPropagation(); exportSceneData(); };
             
@@ -1906,6 +1915,67 @@
             btnGuideClose.onclick = closeGuide;
             guideOverlay.onclick = closeGuide;
             guideModal.onclick = (e) => e.stopPropagation();
+
+            const btnCam = document.getElementById('btn-start-camera');
+            if (btnCam) btnCam.onclick = (e) => { e.stopPropagation(); startCamera(); };
+        }
+
+        function setCameraStatus(msg) {
+            const el = document.getElementById('camera-status');
+            if (!el) return;
+            el.textContent = msg || '';
+            el.style.display = msg ? 'block' : 'none';
+        }
+
+        function describeGetUserMediaError(err) {
+            const name = err?.name || '';
+            if (name === 'NotAllowedError' || name === 'PermissionDeniedError') return '摄像头权限被拒绝：请在浏览器地址栏/系统设置中允许摄像头权限后重试。';
+            if (name === 'NotFoundError' || name === 'DevicesNotFoundError') return '未检测到摄像头设备。';
+            if (name === 'NotReadableError' || name === 'TrackStartError') return '摄像头被占用或无法读取：请关闭其它占用摄像头的应用后重试。';
+            if (name === 'OverconstrainedError') return '摄像头分辨率不支持：请换个设备或浏览器重试。';
+            if (name === 'SecurityError') return '安全限制：请使用 HTTPS 打开页面，且不要在内置浏览器/iframe 中打开。';
+            return '摄像头启动失败：' + (err?.message || name || '未知错误');
+        }
+
+        async function ensureHandLandmarker() {
+            if (handLandmarker) return;
+            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+            handLandmarker = await HandLandmarker.createFromOptions(vision, { baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`, delegate: "GPU" }, runningMode: "VIDEO", numHands: 1 });
+            video = document.getElementById('webcam');
+            canvasCtx = document.getElementById('webcam-preview').getContext('2d');
+            drawingUtils = new DrawingUtils(canvasCtx);
+        }
+
+        async function startCamera() {
+            setCameraStatus('正在请求摄像头权限...');
+
+            if (!navigator.mediaDevices?.getUserMedia) {
+                setCameraStatus('当前浏览器不支持摄像头 API（getUserMedia）。建议用 Chrome / Safari 打开。');
+                return;
+            }
+
+            try {
+                await ensureHandLandmarker();
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } });
+                video.srcObject = stream;
+                const btn = document.getElementById('btn-start-camera');
+                if (btn) btn.textContent = '摄像头已开启';
+
+                video.addEventListener("loadeddata", () => {
+                    video.play().catch(() => {});
+                    document.getElementById('webcam-wrapper').style.opacity = 1;
+                    const aspect = video.videoWidth / video.videoHeight;
+                    document.getElementById('webcam-wrapper').style.height = (120 / aspect) + 'px';
+                    document.getElementById('webcam-preview').width = video.videoWidth;
+                    document.getElementById('webcam-preview').height = video.videoHeight;
+                    setCameraStatus('');
+                    predictWebcam();
+                }, { once: true });
+            } catch (err) {
+                setCameraStatus(describeGetUserMediaError(err));
+                const btn = document.getElementById('btn-start-camera');
+                if (btn) btn.textContent = '开启摄像头';
+            }
         }
 
         init();
